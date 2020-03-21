@@ -18,53 +18,41 @@
 
 package github.scarsz.discordsrv;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.SocketAddress;
+import java.net.URI;
+import java.net.UnknownHostException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+
+import javax.net.ssl.SSLContext;
+import javax.security.auth.login.LoginException;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import github.scarsz.configuralize.DynamicConfig;
-import github.scarsz.configuralize.Language;
-import github.scarsz.configuralize.ParseException;
-import github.scarsz.discordsrv.api.ApiManager;
-import github.scarsz.discordsrv.api.events.DiscordGuildMessagePostBroadcastEvent;
-import github.scarsz.discordsrv.api.events.GameChatMessagePostProcessEvent;
-import github.scarsz.discordsrv.api.events.GameChatMessagePreProcessEvent;
-import github.scarsz.discordsrv.hooks.VaultHook;
-import github.scarsz.discordsrv.hooks.chat.*;
-import github.scarsz.discordsrv.hooks.world.MultiverseCoreHook;
-import github.scarsz.discordsrv.listeners.*;
-import github.scarsz.discordsrv.modules.requirelink.RequireLinkModule;
-import github.scarsz.discordsrv.modules.voice.VoiceModule;
-import github.scarsz.discordsrv.objects.CancellationDetector;
-import github.scarsz.discordsrv.objects.Lag;
-import github.scarsz.discordsrv.objects.StrippedDnsClient;
-import github.scarsz.discordsrv.objects.log4j.ConsoleAppender;
-import github.scarsz.discordsrv.objects.managers.AccountLinkManager;
-import github.scarsz.discordsrv.objects.managers.CommandManager;
-import github.scarsz.discordsrv.objects.managers.JdbcAccountLinkManager;
-import github.scarsz.discordsrv.objects.metrics.BStats;
-import github.scarsz.discordsrv.objects.metrics.MCStats;
-import github.scarsz.discordsrv.objects.threads.ChannelTopicUpdater;
-import github.scarsz.discordsrv.objects.threads.ConsoleMessageQueueWorker;
-import github.scarsz.discordsrv.objects.threads.PresenceUpdater;
-import github.scarsz.discordsrv.objects.threads.ServerWatchdog;
-import github.scarsz.discordsrv.util.*;
-import lombok.Getter;
-import me.vankka.reserializer.discord.DiscordSerializer;
-import me.vankka.reserializer.minecraft.MinecraftSerializer;
-import net.dv8tion.jda.api.AccountType;
-import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.TextChannel;
-import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.events.ShutdownEvent;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.requests.RestAction;
-import net.kyori.text.TextComponent;
-import net.kyori.text.adapter.bukkit.TextAdapter;
-import net.kyori.text.serializer.legacy.LegacyComponentSerializer;
-import okhttp3.Dns;
-import okhttp3.OkHttpClient;
+
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -83,16 +71,77 @@ import org.jetbrains.annotations.NotNull;
 import org.minidns.dnsmessage.DnsMessage;
 import org.minidns.record.Record;
 
-import javax.net.ssl.SSLContext;
-import javax.security.auth.login.LoginException;
-import java.io.File;
-import java.io.IOException;
-import java.lang.reflect.Method;
-import java.net.*;
-import java.sql.SQLException;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.stream.Collectors;
+import github.scarsz.configuralize.DynamicConfig;
+import github.scarsz.configuralize.Language;
+import github.scarsz.configuralize.ParseException;
+import github.scarsz.discordsrv.api.ApiManager;
+import github.scarsz.discordsrv.api.events.DiscordGuildMessagePostBroadcastEvent;
+import github.scarsz.discordsrv.api.events.GameChatMessagePostProcessEvent;
+import github.scarsz.discordsrv.api.events.GameChatMessagePreProcessEvent;
+import github.scarsz.discordsrv.hooks.VaultHook;
+import github.scarsz.discordsrv.hooks.chat.FancyChatHook;
+import github.scarsz.discordsrv.hooks.chat.HerochatHook;
+import github.scarsz.discordsrv.hooks.chat.LegendChatHook;
+import github.scarsz.discordsrv.hooks.chat.LunaChatHook;
+import github.scarsz.discordsrv.hooks.chat.TownyChatHook;
+import github.scarsz.discordsrv.hooks.chat.UltimateChatHook;
+import github.scarsz.discordsrv.hooks.chat.VentureChatHook;
+import github.scarsz.discordsrv.hooks.world.MultiverseCoreHook;
+import github.scarsz.discordsrv.listeners.DiscordAccountLinkListener;
+import github.scarsz.discordsrv.listeners.DiscordBanListener;
+import github.scarsz.discordsrv.listeners.DiscordChatListener;
+import github.scarsz.discordsrv.listeners.DiscordConsoleListener;
+import github.scarsz.discordsrv.listeners.PlayerAchievementsListener;
+import github.scarsz.discordsrv.listeners.PlayerAdvancementDoneListener;
+import github.scarsz.discordsrv.listeners.PlayerBanListener;
+import github.scarsz.discordsrv.listeners.PlayerChatListener;
+import github.scarsz.discordsrv.listeners.PlayerDeathListener;
+import github.scarsz.discordsrv.listeners.PlayerJoinLeaveListener;
+import github.scarsz.discordsrv.modules.requirelink.RequireLinkModule;
+import github.scarsz.discordsrv.modules.voice.VoiceModule;
+import github.scarsz.discordsrv.objects.CancellationDetector;
+import github.scarsz.discordsrv.objects.Lag;
+import github.scarsz.discordsrv.objects.StrippedDnsClient;
+import github.scarsz.discordsrv.objects.log4j.ConsoleAppender;
+import github.scarsz.discordsrv.objects.managers.AccountLinkManager;
+import github.scarsz.discordsrv.objects.managers.CommandManager;
+import github.scarsz.discordsrv.objects.managers.JdbcAccountLinkManager;
+import github.scarsz.discordsrv.objects.metrics.BStats;
+import github.scarsz.discordsrv.objects.metrics.MCStats;
+import github.scarsz.discordsrv.objects.threads.ChannelTopicUpdater;
+import github.scarsz.discordsrv.objects.threads.ConsoleMessageQueueWorker;
+import github.scarsz.discordsrv.objects.threads.PresenceUpdater;
+import github.scarsz.discordsrv.objects.threads.ServerWatchdog;
+import github.scarsz.discordsrv.util.ConfigUtil;
+import github.scarsz.discordsrv.util.DebugUtil;
+import github.scarsz.discordsrv.util.DiscordUtil;
+import github.scarsz.discordsrv.util.GamePermissionUtil;
+import github.scarsz.discordsrv.util.GroupSynchronizationUtil;
+import github.scarsz.discordsrv.util.HttpUtil;
+import github.scarsz.discordsrv.util.LangUtil;
+import github.scarsz.discordsrv.util.PlayerUtil;
+import github.scarsz.discordsrv.util.PluginUtil;
+import github.scarsz.discordsrv.util.TimeUtil;
+import github.scarsz.discordsrv.util.UpdateUtil;
+import github.scarsz.discordsrv.util.WebhookUtil;
+import lombok.Getter;
+import me.vankka.reserializer.discord.DiscordSerializer;
+import me.vankka.reserializer.minecraft.MinecraftSerializer;
+import net.dv8tion.jda.api.AccountType;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.TextChannel;
+import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.events.ShutdownEvent;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.requests.RestAction;
+import net.kyori.text.TextComponent;
+import net.kyori.text.adapter.bukkit.TextAdapter;
+import net.kyori.text.serializer.legacy.LegacyComponentSerializer;
+import okhttp3.Dns;
+import okhttp3.OkHttpClient;
 
 @SuppressWarnings({"unused", "unchecked", "WeakerAccess", "ConstantConditions"})
 public class DiscordSRV extends JavaPlugin implements Listener {
@@ -466,7 +515,7 @@ public class DiscordSRV extends JavaPlugin implements Listener {
 
         // log in to discord
         try {
-            jda = new JDABuilder(AccountType.BOT)
+            JDABuilder builder = new JDABuilder(AccountType.BOT)
                     .setHttpClient(httpClient)
                     .setAutoReconnect(true)
                     .setBulkDeleteSplittingEnabled(false)
@@ -474,9 +523,11 @@ public class DiscordSRV extends JavaPlugin implements Listener {
                     .addEventListeners(new DiscordBanListener())
                     .addEventListeners(new DiscordChatListener())
                     .addEventListeners(new DiscordConsoleListener())
-                    .addEventListeners(new DiscordAccountLinkListener())
-                    .setContextEnabled(false)
-                    .build().awaitReady();
+                    .setContextEnabled(false);
+            if (config().getBoolean("MinecraftDiscordAccountLinkEnabled")) {
+                builder.addEventListeners(new DiscordAccountLinkListener());
+            }
+            jda = builder.build().awaitReady();
         } catch (LoginException e) {
             DiscordSRV.error(LangUtil.InternalMessage.FAILED_TO_CONNECT_TO_DISCORD + ": " + e.getMessage());
             return;
